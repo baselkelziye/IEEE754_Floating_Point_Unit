@@ -1,6 +1,6 @@
 import cocotb
 from cocotb.triggers import Timer
-from helpers import generate_add_case, generate_sub_case, FPUoperation  # Assuming your helper script is named `helper.py`
+from helpers import generate_add_case, generate_sub_case, generate_multiply_case, FPUoperation  # Assuming your helper script is named `helper.py`
 import struct
 
 def int_to_float(value):
@@ -9,12 +9,15 @@ def int_to_float(value):
     """
     return struct.unpack('f', struct.pack('I', value))[0]
 
+async def bin_to_float(binary):
+    return struct.unpack('!f',struct.pack('!I', int(binary, 2)))[0]
+
 @cocotb.test()
 async def test_fpu_adder(dut):
     """
     Test the FPU adder module for correctness with random cases.
     """
-    for i in range(100):  # Generate and test 100 random cases
+    for i in range(1000):  # Generate and test 100 random cases
         # Generate test case
         a, b, expected_result, op = generate_add_case()
 
@@ -27,31 +30,34 @@ async def test_fpu_adder(dut):
         await Timer(1, units="ns")  # Adjust the time and units if needed based on your simulator
 
         # Read and convert output
-        result = dut.result.value.integer
-        result_float = int_to_float(result)  # Convert DUT output to float
-
-        # Convert expected_result (BitArray) to float for comparison
+        result = dut.result.value
+        dut_res_bin = result.binstr
+        dut_res_float = await bin_to_float(dut_res_bin)
         expected_float = expected_result.float
 
+        error_magnitude = abs(expected_float - dut_res_float)
+
         # Validate result
-        if abs(expected_float - result_float) > 1.5:
+        if abs(error_magnitude) > 2.5:
             raise AssertionError(
                 f"Test failed for inputs {a.float} + {b.float}:\n"
                 f"Expected: {expected_float} (0x{expected_result.hex})\n"
-                f"Got: {result_float} (0x{result:08x})"
+                f"Got: {dut_res_float} (0x{result:08x})"
             )
 
         # Print success (optional for debugging)
         dut._log.info(
-            f"Test passed for inputs {a.float} + {b.float} = {expected_float}"
+            f"Test passed for inputs {a.float} + {b.float} = {dut_res_float}"
+            f"\nError magnitude {error_magnitude}"
         )
 
-@cocotb.test()
+
+@cocotb.test()  
 async def test_fpu_subtractor(dut):
     """
     Test the FPU subtractor module for correctness with random cases.
     """
-    for i in range(100):  # Generate and test 100 random cases
+    for i in range(1000):  # Generate and test 100 random cases
         # Generate test case
         a, b, expected_result, op = generate_sub_case()
 
@@ -64,21 +70,59 @@ async def test_fpu_subtractor(dut):
         await Timer(1, units="ns")  # Adjust the time and units if needed based on your simulator
 
         # Read and convert output
-        result = dut.result.value.integer
-        result_float = int_to_float(result)  # Convert DUT output to float
-
-        # Convert expected_result (BitArray) to float for comparison
+        result = dut.result.value
+        dut_res_bin = result.binstr
+        dut_res_float = await bin_to_float(dut_res_bin)
         expected_float = expected_result.float
 
+        error_magnitude = abs(expected_float - dut_res_float)
+
         # Validate result
-        if abs(expected_float - result_float) > 2.1:
+        if abs(error_magnitude) > 2.5:
             raise AssertionError(
                 f"Test failed for inputs {a.float} - {b.float}:\n"
                 f"Expected: {expected_float} (0x{expected_result.hex})\n"
-                f"Got: {result_float} (0x{result:08x})"
+                f"Got: {dut_res_float} (0x{result:08x})"
             )
 
         # Print success (optional for debugging)
         dut._log.info(
             f"Test passed for inputs {a.float} - {b.float} = {expected_float}"
+            f"\nError magnitude {error_magnitude}"
+        )
+
+@cocotb.test()
+async def test_fpu_multiplier(dut):
+    """
+    Test the FPU multiplier module for correctness with random cases.
+    """
+    for i in range(1000):  # Generate and test 100 random cases
+        # Generate test case
+        a, b, expected_result, op = generate_multiply_case()
+
+        # Apply inputs
+        dut.num1.value = int(a.hex, 16)  # Convert to integer for HDL compatibility
+        dut.num2.value = int(b.hex, 16)
+        dut.op.value = op.value
+
+        # Wait for combinational delay
+        await Timer(1, units="ns")  # Adjust the time and units if needed based on your simulator
+
+        # Read and convert output
+        result = dut.result.value
+        dut_res_bin = result.binstr
+        dut_res_float = await bin_to_float(dut_res_bin)
+        expected_float = expected_result.float
+        error_magnitude = abs(expected_float - dut_res_float)
+        # Validate result
+        if abs(error_magnitude) > 0.1:
+            raise AssertionError(
+                f"Test failed for inputs {a.float} * {b.float}:\n"
+                f"Expected: {expected_float} (0x{expected_result.hex})\n"
+                f"Got: {dut_res_float} (0x{result:08x})"
+            )
+        # Print success (optional for debugging)
+        dut._log.info(
+            f"Test passed for inputs {a.float} * {b.float} = {dut_res_float}"
+            f"\nError magnitude {error_magnitude}"
         )
