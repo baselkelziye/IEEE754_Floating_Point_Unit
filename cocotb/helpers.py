@@ -2,11 +2,12 @@ import bitstring, random
 from enum import Enum
 from math import floor
 import struct
-span = 10000000
+span = 100
 class FPUoperation(Enum):
     ADD = 0b0000
     SUB = 0b0001
     MUL = 0b0010
+    DIV = 0b0011
 
 
 def ieee754(flt):
@@ -31,6 +32,11 @@ def generate_multiply_case():
     ab = ieee754(a.float * b.float)
     return a, b, ab, FPUoperation.MUL
 
+def generate_divide_case():
+    a = ieee754(random.uniform(-100, 100))
+    b = ieee754(random.uniform(-100, 100))
+    ab = ieee754(a.float / b.float)
+    return a, b, ab, FPUoperation.DIV
 
 def bin_to_float(binary):
     return struct.unpack('!f',struct.pack('!I', int(binary, 2)))[0]

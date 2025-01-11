@@ -1,29 +1,43 @@
 
 module fp_adder(
     input [31:0] num1, num2,
-    input [7:0] exp_num1, exp_num2,
-    input sign_num1, sign_num2,
-    input [22:0] mantissa_num1, mantissa_num2,
-    input normilized_bit_num1, normilized_bit_num2,
     input add_sub, //If 0 its Add operation if 1 Sub
     output [31:0] result    
 );
 
 
-wire [7:0]  exp_diff;
+wire [7:0 ] exp_diff;
 wire [23:0] mantissa_aligned; //Mantisaa is 24 bit (1 extra bit for the implicit 1)
-reg [24:0] sum;
-reg [22:0] mantissa_norm1_result, mantissa_norm2_result;
+reg  [24:0] sum;
+reg  [22:0] mantissa_norm1_result, mantissa_norm2_result;
 wire [23:0] mantissa_rounded;
-reg [7:0] exp_norm1_result, exp_norm2_result;
-wire [4:0] clz_sum_norm1, clz_sum_norm2;
-wire num2_sign_bit;
-reg [23:0] mantissa_large, mantissa_small;
-reg [7:0] exp_large, exp_small;
+reg  [7:0 ] exp_norm1_result, exp_norm2_result;
+wire [4:0 ] clz_sum_norm1, clz_sum_norm2;
+reg  [23:0] mantissa_large, mantissa_small;
+reg  [7:0 ] exp_large, exp_small;
 reg sign_large, sign_small;
-wire guard_bit, rounding_bit, sticky_bit, round_decision;
+wire guard_bit, rounding_bit, sticky_bit, rounding_decision;
+wire num2_sign_bit;
 //If Subtraction, invert the sign bit of num2
 assign num2_sign_bit = sign_num2 ^ add_sub;
+
+wire [7:0] exp_num1, exp_num2;
+wire sign_num1, sign_num2;
+wire normilized_bit_num1, normilized_bit_num2;
+wire [22:0] mantissa_num1, mantissa_num2;
+
+assign exp_num1 = num1[30:23];
+assign exp_num2 = num2[30:23];
+
+assign mantissa_num1 = num1[22:0];
+assign mantissa_num2 = num2[22:0];
+
+assign sign_num1 = num1[31];
+assign sign_num2 = num2[31];
+
+assign normilized_bit_num1 = 1'b1;
+assign normilized_bit_num2 = 1'b1;
+
 
 //Stage 1 Sorting
 always @(*)
@@ -76,18 +90,20 @@ always @* begin
         mantissa_norm1_result = sum[23:1];
         exp_norm1_result = exp_large + 1;
     end 
-    else if (clz_sum_norm1 > exp_large - 127) begin // If the result is too small, return 0
-        mantissa_norm1_result = 22'b0;
-        exp_norm1_result = 8'b0; 
-    end
+    // else if (clz_sum_norm1 > exp_large - 127) begin // If the result is too small, return 0
+    //     mantissa_norm1_result = 22'b0;
+    //     exp_norm1_result = 8'b0; 
+    // end
     else begin 
         mantissa_norm1_result = sum << clz_sum_norm1;
         exp_norm1_result = exp_large - clz_sum_norm1;
     end
 end
 
+
 //Rounding Decision
-assign rounding_decision = guard_bit & (rounding_bit | sticky_bit);
+// assign rounding_decision = guard_bit & (rounding_bit | sticky_bit);
+assign rounding_decision = 1'b0;
 assign mantissa_rounded = mantissa_norm1_result + rounding_decision;
 
 //Step 5 Normalization 2
@@ -103,11 +119,11 @@ begin
         mantissa_norm2_result = mantissa_rounded[23:1];
         exp_norm2_result = exp_norm1_result + 1;
     end
-    else if(clz_sum_norm2 - 1 > exp_norm1_result - 127)
-    begin
-        mantissa_norm2_result = 22'b0;
-        exp_norm2_result = 8'b0;
-    end
+    // else if(clz_sum_norm2 - 1 > exp_norm1_result - 127)
+    // begin
+    //     mantissa_norm2_result = 22'b0;
+    //     exp_norm2_result = 8'b0;
+    // end
     else
     begin
         mantissa_norm2_result = mantissa_norm1_result;

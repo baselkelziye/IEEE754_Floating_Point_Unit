@@ -1,9 +1,6 @@
 module fp_multiplier
 (
-    input [22:0] mantissa_num1, mantissa_num2,
-    input normilized_bit_num1, normilized_bit_num2, //Currently Hardcoded to 1'b1
-    input sign_num1, sign_num2,
-    input [7:0] exp_num1, exp_num2,
+    input [31:0] num1, num2,
     input [1:0] rounding_mode,
     output [31:0] result    
 );
@@ -17,11 +14,30 @@ ROUND_TO_NEGATIVE_INF = 2'b11;
 wire result_sign;
 wire [47:0] mantissa_product;
 reg  [22:0] normalised_mantissa_r1, normalised_mantissa_final;
-wire [23:0] normalised_mantissa_r2;
+wire [24:0] normalised_mantissa_r2;
 wire [8:0 ] exp_product;
 reg  [8:0 ] normalised_exp_r1, normalised_exp_final;
 reg guard_bit, round_bit, sticky_bit, round_decision; // GRS bits for rounding
 wire is_result_exact;
+
+
+wire [7:0] exp_num1, exp_num2;
+wire sign_num1, sign_num2;
+wire normilized_bit_num1, normilized_bit_num2;
+wire [22:0] mantissa_num1, mantissa_num2;
+
+assign exp_num1 = num1[30:23];
+assign exp_num2 = num2[30:23];
+
+assign mantissa_num1 = num1[22:0];
+assign mantissa_num2 = num2[22:0];
+
+assign sign_num1 = num1[31];
+assign sign_num2 = num2[31];
+
+assign normilized_bit_num1 = 1'b1;
+assign normilized_bit_num2 = 1'b1;
+
 
 wire [2:0] GRS;
 assign GRS = {guard_bit, round_bit, sticky_bit};
@@ -82,16 +98,16 @@ else
     endcase
 end
 
-//Rounding
-assign normalised_mantissa_r2 = normalised_mantissa_r1 + {22'b0, round_decision};
+//Rounding be sure to append the hidden bit while adding.
+assign normalised_mantissa_r2 = {1'b1,normalised_mantissa_r1} + {22'b0, round_decision};
 
 //After rounding a second normalisation might be needed
 always @(*)
 begin
-    if(normalised_mantissa_r2[23])
+    if(normalised_mantissa_r2[24])
     begin //After we round, there is an overflow
         normalised_mantissa_final = normalised_mantissa_r2[23:1];
-        normalised_exp_final = normalised_exp_r1  + 1'b1;
+        normalised_exp_final = normalised_exp_r1[7:0]  + 1'b1;
     end 
     else
     begin
